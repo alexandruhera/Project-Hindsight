@@ -48,6 +48,11 @@
       "type": "string",
       "title": "analysis_timestamp",
       "description": "Timestamp of the forensic analysis execution."
+    },
+    "cleaned_browser_name": {
+      "type": "string",
+      "title": "cleaned_browser_name",
+      "description": "Sanitized browser name for file naming (spaces replaced with hyphens)."
     }
   },
   "required": ["has_processing_errors"]

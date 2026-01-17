@@ -26,11 +26,11 @@
       "title": "analysis_timestamp",
       "description": "Timestamp indicating when the forensic analysis was executed."
     },
-    "selected_browser": {
+    "cleaned_browser_name": {
       "type": "string",
-      "title": "selected_browser",
-      "description": "The browser targeted for forensic analysis."
+      "title": "cleaned_browser_name",
+      "description": "Sanitized browser name for file naming (spaces replaced with hyphens)."
     }
   },
-  "required": ["forensic_results", "forensic_analysis_path", "system_hostname", "analysis_timestamp", "selected_browser"]
+  "required": ["forensic_results", "forensic_analysis_path", "system_hostname", "analysis_timestamp", "cleaned_browser_name"]
 }
