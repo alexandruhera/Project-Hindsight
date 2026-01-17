@@ -1,0 +1,42 @@
+{
+  "properties": {
+    "deviceID": {
+      "pattern": "^[A-Fa-f0-9]{32}$|^\\$\\{[^{}]*\\}$",
+      "type": "string",
+      "title": "Sensor ID",
+      "description": "A sensor ID uniquely identifying a sensor",
+      "format": "aid"
+    },
+    "output_format": {
+      "enum": [
+        "xlsx",
+        "sqlite",
+        "jsonl"
+      ],
+      "type": "string",
+      "title": "Output Format",
+      "default": "xlsx"
+    },
+    "selected_browser": {
+      "enum": [
+        "Google Chrome",
+        "Microsoft Edge",
+        "Brave"
+      ],
+      "type": "string",
+      "title": "Browser Selection",
+      "default": "Google Chrome"
+    },
+    "target_username": {
+      "type": "string",
+      "title": "Target Username",
+      "description": "Optional: Specify a username to target. If blank, auto-discovers the currently logged-in user."
+    }
+  },
+  "required": [
+    "deviceID",
+    "selected_browser",
+    "output_format"
+  ],
+  "type": "object"
+}
