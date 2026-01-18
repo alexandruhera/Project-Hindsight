@@ -93,11 +93,10 @@ hindsight-fusion-soar/
 ├── hindsight_processing.ps1           # Phase 2: Hindsight execution
 ├── hindsight_processing_input.json    # Phase 2 input schema
 ├── hindsight_processing_output.json   # Phase 2 output schema
-├── hindsight_processing_test.ps1      # Phase 2 local test script
 ├── hindsight_collection.ps1           # Phase 3: Artifact compression
 ├── hindsight_collection_input.json    # Phase 3 input schema
 ├── hindsight_collection_output.json   # Phase 3 output schema
-├── hindsight_username_test.ps1        # Username resolution tests
+├── WORKFLOW.md                        # Comprehensive SOAR workflow documentation
 └── README.md
 ```
 
@@ -242,21 +241,16 @@ Errors are captured in the `exception_messages` array with descriptive messages:
 ### Hindsight Binary
 Download from [obsidianforensics/hindsight releases](https://github.com/obsidianforensics/hindsight/releases) and deploy to endpoints via RTR Put-File.
 
-## Testing
+## Workflow Documentation
 
-### hindsight_processing_test.ps1
+For comprehensive SOAR workflow documentation including:
+- Stage-by-stage breakdown with action types
+- Input/output mappings between stages
+- Variable flow and dependencies
+- Retry loop configuration
+- Notification templates
 
-Local test script with hardcoded values for development/debugging. Supports:
-- Explicit username targeting
-- Auto-discovery when `$target_username` is empty/commented
-- All variables initialized to `$null` to prevent session persistence issues
-
-### hindsight_username_test.ps1
-
-Validates username resolution logic against Windows username variations:
-- Simple names, case sensitivity
-- Special characters (periods, hyphens, underscores, spaces)
-- Cross-contamination checks (ensuring "john" doesn't match "john.doe")
+See **[WORKFLOW.md](WORKFLOW.md)**
 
 ## Documentation
 
