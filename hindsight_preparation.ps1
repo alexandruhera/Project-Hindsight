@@ -1,20 +1,28 @@
 <#
 .SYNOPSIS
-    Prepares the remote environment for Hindsight forensic analysis.
+    Prepares a clean working directory on the remote endpoint for Hindsight browser forensic analysis.
 
 .DESCRIPTION
-    Ensures the working directory is clean and exists, preparing the system for
-    the subsequent tool deployment and execution phases.
+    This script initializes the environment required for Hindsight forensic collection.
+    It removes any existing artifacts from previous runs and creates a fresh working
+    directory to ensure consistent and uncontaminated forensic output.
+
+    The script guarantees JSON output for SOAR workflow integration, capturing any
+    errors that occur during preparation without interrupting the automation pipeline.
 
 .PARAMETER json_input
-    A JSON string containing configuration parameters.
-    Required field: 'forensic_analysis_path' (string).
+    JSON string containing the configuration object.
+    Required fields:
+        - working_directory_path: Absolute path where Hindsight artifacts will be stored.
 
 .OUTPUTS
-    JSON string containing:
-    - has_processing_errors (boolean)
-    - forensic_analysis_path (string)
-    - exception_messages (array of strings, if errors occur)
+    JSON object with the following properties:
+        - has_processing_errors: Boolean indicating if any errors occurred.
+        - working_directory_path: The configured working directory path.
+        - exception_messages: Array of error messages (only present if errors occurred).
+
+.EXAMPLE
+    .\hindsight_preparation.ps1 -json_input '{"working_directory_path": "C:\\Temp\\Hindsight"}'
 #>
 
 param (
@@ -24,31 +32,36 @@ param (
 
 $ErrorActionPreference = 'Stop'
 
-# Initialize state
+# Clear all variables to prevent stale values from previous session runs
+$config             = $null
+$working_dir_path   = $null
 $exception_messages = @()
-$json_data = $json_input | ConvertFrom-Json
-$forensic_analysis_path = $json_data.forensic_analysis_path
 
 try {
-    # Ensure the forensic analysis directory is clean and exists
-    if (Test-Path -Path $forensic_analysis_path) {
-        Remove-Item -Path $forensic_analysis_path -Recurse -Force
+    # Parse the JSON input to extract configuration parameters
+    $config = $json_input | ConvertFrom-Json
+    $working_dir_path = $config.working_directory_path
+
+    # Remove existing working directory to ensure clean state for new collection
+    if (Test-Path -Path $working_dir_path) {
+        Remove-Item -Path $working_dir_path -Recurse -Force
     }
-    New-Item -Path $forensic_analysis_path -ItemType Directory -Force | Out-Null
+
+    # Create fresh working directory for Hindsight output
+    New-Item -Path $working_dir_path -ItemType Directory -Force | Out-Null
 } catch {
     $exception_messages += $_.Exception.Message
 }
 
-# Output Construction
-$has_processing_errors = $exception_messages.Count -gt 0
-
-$json_output = [PSCustomObject]@{
-    "has_processing_errors"  = $has_processing_errors
-    "forensic_analysis_path" = $forensic_analysis_path
+# Build the result object for SOAR workflow consumption
+$script_result = [PSCustomObject]@{
+    has_processing_errors  = $exception_messages.Count -gt 0
+    working_directory_path = $working_dir_path
 }
 
-if ($has_processing_errors) {
-    $json_output | Add-Member -NotePropertyName "exception_messages" -NotePropertyValue $exception_messages
+# Append exception details only when errors occurred
+if ($exception_messages.Count -gt 0) {
+    $script_result | Add-Member -NotePropertyName "exception_messages" -NotePropertyValue $exception_messages
 }
 
-$json_output | ConvertTo-Json -Depth 2
+$script_result | ConvertTo-Json -Depth 2

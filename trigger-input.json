@@ -1,42 +1,33 @@
 {
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "type": "object",
   "properties": {
-    "deviceID": {
-      "pattern": "^[A-Fa-f0-9]{32}$|^\\$\\{[^{}]*\\}$",
+    "falcon_sensor_id": {
       "type": "string",
-      "title": "Sensor ID",
-      "description": "A sensor ID uniquely identifying a sensor",
-      "format": "aid"
+      "format": "aid",
+      "pattern": "^[A-Fa-f0-9]{32}$|^\\$\\{[^{}]*\\}$",
+      "title": "Falcon Sensor ID",
+      "description": "CrowdStrike Falcon Agent ID (AID) of the target endpoint. 32-character hexadecimal string."
+    },
+    "target_browser": {
+      "type": "string",
+      "enum": ["Google Chrome", "Microsoft Edge", "Brave"],
+      "title": "Target Browser",
+      "default": "Google Chrome",
+      "description": "Chromium-based browser to collect forensic data from."
     },
     "output_format": {
-      "enum": [
-        "xlsx",
-        "sqlite",
-        "jsonl"
-      ],
       "type": "string",
+      "enum": ["xlsx", "sqlite", "jsonl"],
       "title": "Output Format",
-      "default": "xlsx"
-    },
-    "selected_browser": {
-      "enum": [
-        "Google Chrome",
-        "Microsoft Edge",
-        "Brave"
-      ],
-      "type": "string",
-      "title": "Browser Selection",
-      "default": "Google Chrome"
+      "default": "xlsx",
+      "description": "File format for Hindsight forensic output (xlsx for Excel, sqlite for database, jsonl for JSON lines)."
     },
     "target_username": {
       "type": "string",
       "title": "Target Username",
-      "description": "Optional: Specify a username to target. If blank, auto-discovers the currently logged-in user."
+      "description": "Windows username whose browser profile to analyze. Leave empty for auto-discovery of the currently logged-in user."
     }
   },
-  "required": [
-    "deviceID",
-    "selected_browser",
-    "output_format"
-  ],
-  "type": "object"
+  "required": ["falcon_sensor_id", "target_browser", "output_format"]
 }

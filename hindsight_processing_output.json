@@ -4,55 +4,51 @@
   "properties": {
     "has_processing_errors": {
       "type": "boolean",
-      "title": "has_processing_errors",
-      "description": "Indicates whether any errors occurred during execution."
+      "title": "Has Processing Errors",
+      "description": "Boolean flag indicating whether any errors occurred during processing. Used as a decision point for workflow branching."
+    },
+    "target_browser": {
+      "type": "string",
+      "title": "Target Browser",
+      "description": "Name of the browser that was analyzed (preserved for downstream notifications)."
+    },
+    "target_hostname": {
+      "type": "string",
+      "title": "Target Hostname",
+      "description": "Hostname of the endpoint system where collection occurred."
+    },
+    "resolved_username": {
+      "type": "string",
+      "title": "Resolved Username",
+      "description": "Windows username that was resolved (either from input or auto-discovered)."
+    },
+    "detected_browser_profiles": {
+      "type": "array",
+      "items": { "type": "string" },
+      "title": "Detected Browser Profiles",
+      "description": "Array of browser profile names found (e.g., Default, Profile 1, Profile 2)."
+    },
+    "output_artifact_paths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "title": "Output Artifact Paths",
+      "description": "Array of absolute paths to the Hindsight output files that were generated."
+    },
+    "execution_timestamp": {
+      "type": "string",
+      "title": "Execution Timestamp",
+      "description": "UTC timestamp (yyyy-MM-ddTHH-mm format) used for consistent artifact naming."
+    },
+    "working_directory_path": {
+      "type": "string",
+      "title": "Working Directory Path",
+      "description": "Absolute path to the directory containing output artifacts."
     },
     "exception_messages": {
       "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "title": "exception_messages",
-      "description": "List of error messages captured during execution."
-    },
-    "user_data_path": {
-      "type": "string",
-      "title": "user_data_path",
-      "description": "Resolved user data path for the selected browser."
-    },
-    "browser_profile_names": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "title": "browser_profile_names",
-      "description": "List of detected browser profile names."
-    },
-    "browser_profile_paths": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "title": "browser_profile_paths",
-      "description": "List of detected browser profile paths."
-    },
-    "forensic_results": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "title": "forensic_results",
-      "description": "Paths to the generated forensic analysis result files."
-    },
-    "analysis_timestamp": {
-      "type": "string",
-      "title": "analysis_timestamp",
-      "description": "Timestamp of the forensic analysis execution."
-    },
-    "cleaned_browser_name": {
-      "type": "string",
-      "title": "cleaned_browser_name",
-      "description": "Sanitized browser name for file naming (spaces replaced with hyphens)."
+      "items": { "type": "string" },
+      "title": "Exception Messages",
+      "description": "Array of error messages describing what failed (only present when has_processing_errors is true)."
     }
   },
   "required": ["has_processing_errors"]

@@ -2,35 +2,32 @@
   "$schema": "https://json-schema.org/draft-07/schema",
   "type": "object",
   "properties": {
-    "forensic_results": {
+    "expected_artifact_paths": {
       "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "title": "forensic_results",
-      "description": "Flat array of file paths pointing to forensic result files."
+      "items": { "type": "string" },
+      "title": "Expected Artifact Paths",
+      "description": "Array of absolute paths to the Hindsight output files that should exist. All files must be present for compression to proceed."
     },
-    "forensic_analysis_path": {
+    "working_directory_path": {
       "type": "string",
-      "format": "localFilePath",
-      "title": "forensic_analysis_path",
-      "description": "Path where forensic results are stored and the final ZIP file is created."
+      "title": "Working Directory Path",
+      "description": "Absolute path to the directory where the compressed ZIP archive will be created."
     },
-    "system_hostname": {
+    "target_hostname": {
       "type": "string",
-      "title": "system_hostname",
-      "description": "Hostname of the system where the forensic analysis is performed."
+      "title": "Target Hostname",
+      "description": "Hostname of the endpoint system, used for naming the output ZIP archive."
     },
-    "analysis_timestamp": {
+    "target_browser": {
       "type": "string",
-      "title": "analysis_timestamp",
-      "description": "Timestamp indicating when the forensic analysis was executed."
+      "title": "Target Browser",
+      "description": "Name of the browser that was analyzed, used for naming the output ZIP archive."
     },
-    "cleaned_browser_name": {
+    "execution_timestamp": {
       "type": "string",
-      "title": "cleaned_browser_name",
-      "description": "Sanitized browser name for file naming (spaces replaced with hyphens)."
+      "title": "Execution Timestamp",
+      "description": "UTC timestamp from the processing phase, used for naming the output ZIP archive."
     }
   },
-  "required": ["forensic_results", "forensic_analysis_path", "system_hostname", "analysis_timestamp", "cleaned_browser_name"]
+  "required": ["expected_artifact_paths", "working_directory_path", "target_hostname", "target_browser", "execution_timestamp"]
 }

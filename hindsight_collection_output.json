@@ -4,23 +4,35 @@
   "properties": {
     "has_processing_errors": {
       "type": "boolean",
-      "title": "has_processing_errors",
-      "description": "Indicates whether any errors occurred during execution.",
-	  "enum": [true, false]
+      "title": "Has Processing Errors",
+      "description": "Boolean flag indicating whether any errors occurred. If true due to missing artifacts, triggers SOAR retry loop."
+    },
+    "compressed_archive_path": {
+      "type": "string",
+      "format": "localFilePath",
+      "title": "Compressed Archive Path",
+      "description": "Absolute path to the created ZIP archive containing all forensic artifacts. Used by Get-File action for retrieval."
+    },
+    "target_browser": {
+      "type": "string",
+      "title": "Target Browser",
+      "description": "Name of the browser that was analyzed (preserved for downstream notifications)."
+    },
+    "target_hostname": {
+      "type": "string",
+      "title": "Target Hostname",
+      "description": "Hostname of the endpoint system (preserved for downstream notifications)."
+    },
+    "execution_timestamp": {
+      "type": "string",
+      "title": "Execution Timestamp",
+      "description": "UTC timestamp of the collection (preserved for downstream notifications)."
     },
     "exception_messages": {
       "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "title": "exception_messages",
-      "description": "List of error messages captured during execution."
-    },
-    "zip_file_path": {
-      "type": "string",
-      "format": "localFilePath",
-      "title": "zip_file_path",
-      "description": "Path to the generated ZIP archive containing forensic results."
+      "items": { "type": "string" },
+      "title": "Exception Messages",
+      "description": "Array of error messages describing what failed. Presence triggers SOAR retry loop for artifact validation."
     }
   },
   "required": ["has_processing_errors"]

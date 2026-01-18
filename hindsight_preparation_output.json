@@ -4,22 +4,20 @@
   "properties": {
     "has_processing_errors": {
       "type": "boolean",
-      "title": "has_processing_errors",
-      "description": "Indicates whether any errors occurred during execution."
+      "title": "Has Processing Errors",
+      "description": "Boolean flag indicating whether any errors occurred during directory preparation. Used as a decision point for workflow branching."
+    },
+    "working_directory_path": {
+      "type": "string",
+      "format": "localFilePath",
+      "title": "Working Directory Path",
+      "description": "Absolute path to the created working directory where artifacts will be stored."
     },
     "exception_messages": {
       "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "title": "exception_messages",
-      "description": "List of error messages captured during execution."
-    },
-    "forensic_analysis_path": {
-      "type": "string",
-      "format": "localFilePath",
-      "title": "forensic_analysis_path",
-      "description": "Path where the hindsight binary is put and executed from. This is also where we store the resulting collection files."
+      "items": { "type": "string" },
+      "title": "Exception Messages",
+      "description": "Array of error messages describing what failed (only present when has_processing_errors is true)."
     }
   },
   "required": ["has_processing_errors"]
