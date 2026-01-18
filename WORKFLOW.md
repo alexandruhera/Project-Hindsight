@@ -55,21 +55,23 @@ ELSE
 
 ---
 
-### Stage 4: Create Working Directory Variable
+### Stage 4: Create Workflow Variables
 
-**Action Type**: Falcon SOAR - Create Variable
+**Action Type**: Falcon SOAR - Create Variable (x2)
 
-Creates a workflow variable for the working directory path. This approach keeps the directory path configurable without modifying the scripts.
+Creates workflow variables for paths. This approach keeps paths configurable without modifying scripts.
 
-**Variable Created**:
+**Variables Created**:
 | Variable Name | Value | Purpose |
 |---------------|-------|---------|
-| `working_directory_path` | `C:\hindsight` (or configured path) | Centralized path management |
+| `working_directory_path` | `C:\hindsight` (or configured path) | Working directory for artifacts |
+| `compressed_archive_path` | `C:\hindsight\{hostname}-{browser}-{timestamp}.zip` | Output ZIP path for loop output |
 
-**Design Decision**: Using a SOAR variable rather than hardcoding in scripts allows:
+**Design Decision**: Using SOAR variables rather than hardcoding in scripts allows:
 - Easy path changes without script modifications
 - Environment-specific configurations
 - Audit trail of configuration changes
+- Loop output variable population
 
 ---
 
@@ -165,17 +167,16 @@ Executes `hindsight_processing.ps1` on the target endpoint. This is the core for
 | `target_hostname` | Endpoint hostname | Notifications |
 | `resolved_username` | Resolved Windows username | Notifications |
 | `detected_browser_profiles` | Array of profile names found | Notifications |
-| `output_artifact_paths` | Array of expected output file paths | Collection stage |
+| `output_artifact_paths` | Array of expected output file paths | Collection loop |
 | `execution_timestamp` | UTC timestamp | Artifact naming |
-| `working_directory_path` | Working directory path | Collection stage |
+| `working_directory_path` | Working directory path | Collection loop |
 | `exception_messages` | Error details if failed | Error handling |
 
-**Notification Data Points**:
-The following outputs are preserved for constructing analyst notifications:
-- `target_hostname` - "Successfully started processing on **{hostname}**"
-- `target_browser` - "Targeting **{browser}**"
-- `detected_browser_profiles` - "Found **{count}** profiles: {profile_list}"
-- `resolved_username` - "Collecting from user **{username}**"
+**Notification Data Points** (preserved for final notification):
+- `target_hostname` - Endpoint where collection ran
+- `target_browser` - Browser that was targeted
+- `detected_browser_profiles` - Profiles found and collected
+- `resolved_username` - User whose data was collected
 
 ---
 
@@ -188,23 +189,62 @@ Checks if the processing script completed successfully.
 **Condition Logic**:
 ```
 IF has_processing_errors == false
-    → Continue to Stage 10
+    → Continue to Stage 10 (Collection Loop)
 ELSE
     → Error handling path (notify analyst with exception_messages)
 ```
 
 ---
 
-### Stage 10: Collection Script Execution (with Retry Loop)
+### Stage 10: Collection Loop
 
-**Action Type**: RTR - Run Script (with loop configuration)
+**Action Type**: Loop
 
-Executes `hindsight_collection.ps1` on the target endpoint. Configured with retry logic to handle Hindsight processing time.
+A loop structure that repeatedly checks for artifact completion and compresses when ready.
+
+**Loop Structure**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  LOOP START                                                     │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  10a: Collection Script                                   │  │
+│  │  hindsight_collection.ps1                                 │  │
+│  │  - Validates all output_artifact_paths exist              │  │
+│  │  - If complete: creates ZIP archive                       │  │
+│  │  - Outputs: has_processing_errors, compressed_archive_path│  │
+│  └─────────────────────────┬─────────────────────────────────┘  │
+│                            │                                    │
+│                            ▼                                    │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  10b: Condition - Files Ready?                            │  │
+│  │  IF has_processing_errors == true                         │  │
+│  │      → Continue to 10c (Sleep)                            │  │
+│  │  ELSE                                                     │  │
+│  │      → Continue to 10d (Break)                            │  │
+│  └─────────────────────────┬─────────────────────────────────┘  │
+│                            │                                    │
+│            ┌───────────────┴───────────────┐                    │
+│            │                               │                    │
+│            ▼                               ▼                    │
+│  ┌─────────────────────┐       ┌─────────────────────────────┐  │
+│  │  10c: Sleep Action  │       │  10d: Break Action          │  │
+│  │  Wait 1 minute      │       │  Exit loop                  │  │
+│  │  (configurable)     │       │  Output: compressed_archive │  │
+│  │  → Loop back to 10a │       │  _path                      │  │
+│  └─────────────────────┘       └─────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Stage 10a: Collection Script
+
+**Action Type**: RTR - Run Script
 
 **Input Mapping**:
 | Script Parameter | Source |
 |------------------|--------|
-| `expected_artifact_paths` | Stage 8 output |
+| `expected_artifact_paths` | Stage 8 `output_artifact_paths` |
 | `working_directory_path` | Stage 4 variable |
 | `target_hostname` | Stage 2 device details |
 | `target_browser` | Stage 1 trigger input |
@@ -212,25 +252,50 @@ Executes `hindsight_collection.ps1` on the target endpoint. Configured with retr
 
 **Script Actions**:
 1. Validate all expected artifact files exist
-2. If missing → return error (triggers retry)
-3. If complete → compress all artifacts to ZIP
-
-**Retry Configuration**:
-| Setting | Recommended Value |
-|---------|-------------------|
-| Max Retries | 10 |
-| Retry Interval | 30 seconds |
-| Retry Condition | `has_processing_errors == true` |
+2. If any missing → set `has_processing_errors = true`
+3. If all present → compress to ZIP, set `has_processing_errors = false`
 
 **Outputs**:
 | Field | Description |
 |-------|-------------|
-| `has_processing_errors` | Triggers retry if artifacts not ready |
-| `compressed_archive_path` | Path to ZIP for Get-File retrieval |
-| `target_browser` | For notifications |
-| `target_hostname` | For notifications |
-| `execution_timestamp` | For notifications |
-| `exception_messages` | Error details (triggers retry) |
+| `has_processing_errors` | `true` if artifacts not ready, `false` if ZIP created |
+| `compressed_archive_path` | Path to created ZIP (only valid when `has_processing_errors = false`) |
+| `exception_messages` | Details on which files are missing |
+
+#### Stage 10b: Files Ready Condition
+
+**Action Type**: Condition
+
+**Condition Logic**:
+```
+IF has_processing_errors == true
+    → Artifacts not ready, go to Sleep (10c)
+ELSE
+    → ZIP created successfully, go to Break (10d)
+```
+
+#### Stage 10c: Sleep Action
+
+**Action Type**: Falcon SOAR - Sleep
+
+Pauses execution before retrying artifact check.
+
+| Setting | Value |
+|---------|-------|
+| Duration | 1 minute (configurable by workflow author) |
+
+After sleep, loop returns to Stage 10a to re-run collection script.
+
+#### Stage 10d: Break Action
+
+**Action Type**: Loop - Break
+
+Exits the loop when artifacts are ready and ZIP is created.
+
+**Output Variable**:
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `compressed_archive_path` | Path from collection script | Passed to Get-File stage |
 
 ---
 
@@ -243,14 +308,33 @@ Retrieves the compressed ZIP archive from the endpoint.
 **Input Mapping**:
 | Parameter | Source |
 |-----------|--------|
-| File Path | `compressed_archive_path` from Stage 10 |
+| File Path | `compressed_archive_path` from Stage 10 loop output |
 
 **Outputs**:
 - File available in Falcon console for analyst download
+- Success/failure status for parallel stage trigger
 
 ---
 
-### Stage 12: Cleanup (Remove Working Directory)
+### Stage 12: Parallel Execution (Cleanup + Notification)
+
+**Action Type**: Parallel
+
+After successful Get-File, two actions execute simultaneously.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  PARALLEL EXECUTION                                             │
+│                                                                 │
+│  ┌─────────────────────────┐   ┌─────────────────────────────┐  │
+│  │  12a: Cleanup           │   │  12b: Send Notification     │  │
+│  │  Remove working dir     │   │  Alert analyst              │  │
+│  └─────────────────────────┘   └─────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Stage 12a: Cleanup (Remove Working Directory)
 
 **Action Type**: RTR - Run Command
 
@@ -261,26 +345,35 @@ Removes the working directory from the endpoint after successful retrieval.
 Remove-Item -Path "{working_directory_path}" -Recurse -Force
 ```
 
----
-
-### Stage 13: Send Notification
+#### Stage 12b: Send Notification
 
 **Action Type**: Notification (Email, Slack, Teams, etc.)
 
 Notifies the analyst that collection is complete.
 
-**Notification Template**:
+**Notification Template** (using actual variable names):
 ```
 Hindsight Collection Complete
 
-Endpoint: {target_hostname}
-Browser: {target_browser}
-User: {resolved_username}
-Profiles Collected: {detected_browser_profiles.count}
-Timestamp: {execution_timestamp}
+Endpoint: ${target_hostname}
+Browser: ${target_browser}
+User: ${resolved_username}
+Profiles Collected: ${detected_browser_profiles}
+Timestamp: ${execution_timestamp}
+Archive: ${compressed_archive_path}
 
 The forensic archive is ready for download in the Falcon console.
 ```
+
+**Variable Reference**:
+| Template Variable | Source Stage | Schema Field |
+|-------------------|--------------|--------------|
+| `${target_hostname}` | Stage 8 | `target_hostname` |
+| `${target_browser}` | Stage 8 | `target_browser` |
+| `${resolved_username}` | Stage 8 | `resolved_username` |
+| `${detected_browser_profiles}` | Stage 8 | `detected_browser_profiles` |
+| `${execution_timestamp}` | Stage 8 | `execution_timestamp` |
+| `${compressed_archive_path}` | Stage 10 | `compressed_archive_path` |
 
 ---
 
@@ -300,7 +393,7 @@ The forensic archive is ready for download in the Falcon console.
                                   │
                                   ▼
                         ┌─────────────────┐
-                        │  Windows?       │
+                        │   Windows?      │
                         └────────┬────────┘
                                  │
                     ┌────────────┴────────────┐
@@ -312,9 +405,10 @@ The forensic archive is ready for download in the Falcon console.
                     │                         │
                     ▼                         ▼
 ┌───────────────────────────────┐     ┌───────────────┐
-│  CREATE VARIABLE              │     │  ABORT        │
-│  working_directory_path       │     │  (Unsupported)│
-└───────────────┬───────────────┘     └───────────────┘
+│  CREATE VARIABLES             │     │  ABORT        │
+│  • working_directory_path     │     │  (Unsupported)│
+│  • compressed_archive_path    │     └───────────────┘
+└───────────────┬───────────────┘
                 │
                 ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
@@ -324,55 +418,80 @@ The forensic archive is ready for download in the Falcon console.
                 │
                 ▼
         ┌───────────────┐
-        │  Errors?      │───Yes──▶ [Error Handling]
+        │  Errors?      │───Yes──▶ [Error Notification]
         └───────┬───────┘
                 │ No
                 ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
 │  PUT-FILE                                                                 │
-│  Deploy hindsight.exe to working directory                                │
+│  Deploy hindsight.exe to working_directory_path                           │
 └───────────────┬───────────────────────────────────────────────────────────┘
                 │
                 ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
 │  PROCESSING SCRIPT                                                        │
 │  hindsight_processing.ps1                                                 │
-│  Outputs: profiles, artifact_paths, hostname, browser, timestamp          │
+│  Outputs: detected_browser_profiles, output_artifact_paths,               │
+│           target_hostname, target_browser, resolved_username,             │
+│           execution_timestamp                                             │
 └───────────────┬───────────────────────────────────────────────────────────┘
                 │
                 ▼
         ┌───────────────┐
-        │  Errors?      │───Yes──▶ [Error Handling]
+        │  Errors?      │───Yes──▶ [Error Notification]
         └───────┬───────┘
                 │ No
                 ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│  COLLECTION SCRIPT (with retry loop)                                      │
-│  hindsight_collection.ps1                                                 │
-│  Validates artifacts exist, compresses to ZIP                             │
-└───────────────┬───────────────────────────────────────────────────────────┘
-                │
-                ▼ (retry if files not ready)
-        ┌───────────────┐
-        │  Files Ready? │───No──▶ [Wait 30s, Retry]
-        └───────┬───────┘
-                │ Yes
-                ▼
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
+│  COLLECTION LOOP                                                          │
+│ ┌───────────────────────────────────────────────────────────────────────┐ │
+│ │  COLLECTION SCRIPT                                                    │ │
+│ │  hindsight_collection.ps1                                             │ │
+│ │  Validates output_artifact_paths exist, creates ZIP                   │ │
+│ └───────────────────────────────────────────────────────────────────────┘ │
+│                               │                                           │
+│                               ▼                                           │
+│                     ┌─────────────────┐                                   │
+│                     │ has_processing  │                                   │
+│                     │ _errors?        │                                   │
+│                     └────────┬────────┘                                   │
+│                              │                                            │
+│              ┌───────────────┴───────────────┐                            │
+│              │                               │                            │
+│              ▼                               ▼                            │
+│     ┌─────────────────┐           ┌─────────────────┐                     │
+│     │  true (waiting) │           │  false (ready)  │                     │
+│     └────────┬────────┘           └────────┬────────┘                     │
+│              │                             │                              │
+│              ▼                             ▼                              │
+│     ┌─────────────────┐           ┌─────────────────┐                     │
+│     │  SLEEP          │           │  BREAK          │                     │
+│     │  1 minute       │           │  Output:        │                     │
+│     └────────┬────────┘           │  compressed_    │                     │
+│              │                    │  archive_path   │                     │
+│              └──────┐             └────────┬────────┘                     │
+│                     │                      │                              │
+│                     ▼                      │                              │
+│              [Loop back]                   │                              │
+└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┼ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+                                             │
+                                             ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
 │  GET-FILE                                                                 │
-│  Retrieve ZIP archive from endpoint                                       │
-└───────────────┬───────────────────────────────────────────────────────────┘
-                │
-                ▼
+│  Retrieve compressed_archive_path from endpoint                           │
+└───────────────────────────────────────────────────────────────────────────┘
+                                             │
+                                             ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
-│  CLEANUP                                                                  │
-│  Remove working directory                                                 │
-└───────────────┬───────────────────────────────────────────────────────────┘
-                │
-                ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│  NOTIFICATION                                                             │
-│  Alert analyst that collection is complete                                │
+│  PARALLEL EXECUTION                                                       │
+│  ┌─────────────────────────────┐   ┌─────────────────────────────────┐   │
+│  │  CLEANUP                    │   │  NOTIFICATION                   │   │
+│  │  Remove-Item                │   │  • ${target_hostname}           │   │
+│  │  working_directory_path     │   │  • ${target_browser}            │   │
+│  │                             │   │  • ${resolved_username}         │   │
+│  │                             │   │  • ${detected_browser_profiles} │   │
+│  │                             │   │  • ${execution_timestamp}       │   │
+│  └─────────────────────────────┘   └─────────────────────────────────┘   │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -386,8 +505,9 @@ The forensic archive is ready for download in the Falcon console.
 - Notify analyst with `exception_messages`
 - Common causes: User profile not found, browser not installed, no profiles detected
 
-### Collection Retry Exhausted
-- After max retries, notify analyst that artifacts never became ready
+### Collection Loop Timeout
+- If loop runs indefinitely, configure max iterations in SOAR
+- Notify analyst that artifacts never became ready
 - Common causes: Hindsight crashed, antivirus interference, disk I/O issues
 
 ## Variable Flow Summary
@@ -399,11 +519,12 @@ The forensic archive is ready for download in the Falcon console.
 | `output_format` | Trigger | Processing |
 | `target_username` | Trigger | Processing |
 | `platform_name` | Device Details | Platform Condition |
-| `hostname` | Device Details | Processing (as target_hostname), Notification |
+| `hostname` | Device Details | Processing (as `target_hostname`) |
 | `working_directory_path` | Create Variable | Preparation, Put-File, Processing, Collection, Cleanup |
+| `compressed_archive_path` | Create Variable / Collection | Loop Output, Get-File, Notification |
 | `hindsight_executable_path` | Put-File | Processing |
-| `output_artifact_paths` | Processing | Collection |
+| `output_artifact_paths` | Processing | Collection Loop |
 | `execution_timestamp` | Processing | Collection, Notification |
 | `detected_browser_profiles` | Processing | Notification |
 | `resolved_username` | Processing | Notification |
-| `compressed_archive_path` | Collection | Get-File |
+| `target_hostname` | Processing | Collection, Notification |
