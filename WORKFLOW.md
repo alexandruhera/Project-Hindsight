@@ -65,7 +65,7 @@ Creates workflow variables for paths. This approach keeps paths configurable wit
 | Variable Name | Value | Purpose |
 |---------------|-------|---------|
 | `working_directory_path` | `C:\hindsight` (or configured path) | Working directory for artifacts |
-| `compressed_archive_path` | `C:\hindsight\{hostname}-{browser}-{timestamp}.zip` | Output ZIP path for loop output |
+| `compressed_archive_path` | (empty - populated by collection loop) | Output ZIP path for loop output |
 
 **Design Decision**: Using SOAR variables rather than hardcoding in scripts allows:
 - Easy path changes without script modifications
@@ -124,7 +124,7 @@ Uploads the `hindsight.exe` binary to the working directory on the target endpoi
 **Input Mapping**:
 | Parameter | Source |
 |-----------|--------|
-| Target Path | `{working_directory_path}\hindsight.exe` |
+| Target Path | `{working_directory_path}` |
 | Source File | Pre-uploaded `hindsight.exe` from RTR Put-Files |
 
 **Outputs**:
